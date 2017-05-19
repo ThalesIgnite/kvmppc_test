@@ -10,7 +10,15 @@
 
 #define BOOKE206_MAX_TLBN 4
 #define EPAPR_MAGIC (0x45504150)
+#define GUEST_MEM_SIZE 4096
 #define MAS1_VALID 0x80000000
+#define MAS1_TSIZE_SHIFT 7
+#define MAS3_UX 0x00000020
+#define MAS3_SX 0x00000010
+#define MAS3_UW 0x00000008
+#define MAS3_SW 0x00000004
+#define MAS3_UR 0x00000002
+#define MAS3_SR 0x00000001
 
 typedef struct ppcmas_tlb_t {
 	uint32_t mas8;
@@ -22,6 +30,7 @@ typedef struct ppcmas_tlb_t {
 struct ppcmas_tlb_t *kvm_vcpu_initialize_tlb(int vcpufd) {
 	int i, ret;
 
+	// qemu sets it this way, too
 	struct kvm_book3e_206_tlb_params params = {0};
 	params.tlb_sizes[0] = 512;
 	params.tlb_ways[0] = 4;
@@ -31,22 +40,18 @@ struct ppcmas_tlb_t *kvm_vcpu_initialize_tlb(int vcpufd) {
 	params.tlb_ways[2] = 0;
 	params.tlb_sizes[3] = 0;
 	params.tlb_ways[3] = 0;
+	int total_tlb_size = 512 + 64;
 
 	struct ppcmas_tlb_t *tlbm;
-	tlbm = malloc((512 + 64) * sizeof(ppcmas_tlb_t));
-	memset(tlbm, 0, (512 + 64) * sizeof(ppcmas_tlb_t));
+	tlbm = malloc(total_tlb_size * sizeof(ppcmas_tlb_t));
 
-        for(i = 0; i < 512; i++) {
+        for(i = 0; i < total_tlb_size; i++) {
 		tlbm[i].mas1 &= ~MAS1_VALID;
-	}
-
-	for(i = 0; i < 64; i++) {
-		tlbm[512 + i].mas1 &= ~MAS1_VALID;
 	}
 
 	struct kvm_config_tlb cfg = {0};
 	cfg.array = (uintptr_t)tlbm;
-	cfg.array_len = (512 + 64) * sizeof(ppcmas_tlb_t);
+	cfg.array_len = total_tlb_size * sizeof(ppcmas_tlb_t);
 	cfg.params = (uintptr_t)&params;
 	cfg.mmu_type = KVM_MMU_FSL_BOOKE_NOHV;
 
@@ -176,12 +181,13 @@ int kvm_vcpu_reset_regs(int vcpufd)
 
 	vcpu_regs.pid = 0x0;
 
+	// qemu sets these this way (e500.c:ppce500_cpu_reset)
 	vcpu_regs.gpr[1] = (16<<20) - 8;
 	vcpu_regs.gpr[3] = 0;
 	vcpu_regs.gpr[4] = 0;
 	vcpu_regs.gpr[5] = 0;
 	vcpu_regs.gpr[6] = EPAPR_MAGIC;
-	vcpu_regs.gpr[7] = 4096;
+	vcpu_regs.gpr[7] = GUEST_MEM_SIZE;
 	vcpu_regs.gpr[8] = 0;
 	vcpu_regs.gpr[9] = 0;
 
@@ -198,19 +204,19 @@ int kvm_vcpu_print_regs(int vcpufd) {
 
 	if (ret < 0) return ret;
 
-	fprintf(stderr, "regs.ctr = %llx\nregs.lr = %llx\nregs.xer = %llx\nregs.msr = %llx\nregs.pc = %llx\n", regs.ctr, regs.lr, regs.xer, regs.msr, regs.pc);
+	fprintf(stdout, "regs.ctr = %llx\nregs.lr = %llx\nregs.xer = %llx\nregs.msr = %llx\nregs.pc = %llx\n", regs.ctr, regs.lr, regs.xer, regs.msr, regs.pc);
 	
-	fprintf(stderr, "regs.srr0 = %llx\nregs.srr1 = %llx\n", regs.srr0, regs.srr1);
+	fprintf(stdout, "regs.srr0 = %llx\nregs.srr1 = %llx\n", regs.srr0, regs.srr1);
 	
-	fprintf(stderr, "regs.sprg0 = %llx\nregs.sprg1 = %llx\nregs.sprg2 = %llx\nregs.sprg3 = %llx\nregs.sprg4 = %llx\nregs.sprg5 = %llx\nregs.sprg6 = %llx\nregs.sprg7 = %llx\n", regs.sprg0, regs.sprg1, regs.sprg2, regs.sprg3, regs.sprg4, regs.sprg5, regs.sprg6, regs.sprg7);
+	fprintf(stdout, "regs.sprg0 = %llx\nregs.sprg1 = %llx\nregs.sprg2 = %llx\nregs.sprg3 = %llx\nregs.sprg4 = %llx\nregs.sprg5 = %llx\nregs.sprg6 = %llx\nregs.sprg7 = %llx\n", regs.sprg0, regs.sprg1, regs.sprg2, regs.sprg3, regs.sprg4, regs.sprg5, regs.sprg6, regs.sprg7);
 	
-	fprintf(stderr, "regs.pid = %llx\n", regs.pid);
+	fprintf(stdout, "regs.pid = %llx\n", regs.pid);
 	
 	for (i = 0; i < 32; i++) {
-		fprintf(stderr, "regs.gpr[%d] = %llx\n", i, regs.gpr[i]);
+		fprintf(stdout, "regs.gpr[%d] = %llx\n", i, regs.gpr[i]);
 	}
 	
-	fprintf(stderr, "regs.cr = %llx\n", regs.cr);
+	fprintf(stdout, "regs.cr = %llx\n", regs.cr);
 
 	return 0;
 }
@@ -229,12 +235,13 @@ int kvm_vcpu_invalidate_tlb_cache(int vcpufd)
 {
 	int ret;
 
-	unsigned char *bitmap = (unsigned char *)malloc((576+7)/8);
-	memset(bitmap, 0xFF, (576+7)/8);
+	int total_tlb_size = 512 + 64;
+	unsigned char *bitmap = (unsigned char *)malloc((total_tlb_size+7)/8);
+	memset(bitmap, 0xFF, (total_tlb_size+7)/8);
 
 	struct kvm_dirty_tlb dirty_tlb = {0};
 	dirty_tlb.bitmap = (uintptr_t)bitmap;
-	dirty_tlb.num_dirty = 576;
+	dirty_tlb.num_dirty = total_tlb_size;
 
 	ret = ioctl(vcpufd, KVM_DIRTY_TLB, &dirty_tlb);
 	free(bitmap);
@@ -266,7 +273,7 @@ int main(int argc, char *argv[])
 	}
 
 	int kvm_ver = ioctl(kvmfd, KVM_GET_API_VERSION, NULL);
-	printf("kvm api version is: %d\n", kvm_ver);
+	fprintf(stdout, "kvm api version is: %d\n", kvm_ver);
 	if (kvm_ver != 12) {
 		fprintf(stderr, "only version 12 is supported\n");
 		ret = -1;
@@ -294,7 +301,7 @@ int main(int argc, char *argv[])
 	}
 
 	int kvm_run_mmap_size = ioctl(kvmfd, KVM_GET_VCPU_MMAP_SIZE, NULL);
-	printf("kvm_run mmap size: %d\n", kvm_run_mmap_size);
+	fprintf(stdout, "kvm_run mmap size: %d\n", kvm_run_mmap_size);
 
 	struct kvm_run *vcpu_kvm_run = mmap(NULL, kvm_run_mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpufd, 0);
 	if(0 == vcpu_kvm_run) {
@@ -312,7 +319,7 @@ int main(int argc, char *argv[])
 	if(kvm_vcpu_get_debug_opcode(vcpufd, &debug_inst_opcode) < 0) {
 		fprintf(stderr, "coult not get debug opcode!\n");
 	}
-	fprintf(stderr, "debug_inst_opcode = %X\n", ret, debug_inst_opcode);
+	fprintf(stdout, "debug_inst_opcode = %X\n", debug_inst_opcode);
 
 	sigset_t sigset;
 	sigemptyset(&sigset);
@@ -324,16 +331,16 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "could not enable watchdog!\n");
 	}
 
-	void *guest_mem = mmap(NULL, 0x8000000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	void *guest_mem = mmap(NULL, GUEST_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if(0 == guest_mem) {
 		fprintf(stderr, "could not map guest memory: %s\n", strerror(errno));
 		ret = errno;
 		goto guest_mem_map_failed;
 	}
 
-	madvise(guest_mem, 0x8000000, MADV_DONTFORK);
+	madvise(guest_mem, GUEST_MEM_SIZE, MADV_DONTFORK);
 
-	memset(guest_mem, 0, 0x8000000);
+	memset(guest_mem, 0, GUEST_MEM_SIZE);
 
 	((uint32_t*)guest_mem)[0x00] = 0x38000008;
 	((uint32_t*)guest_mem)[0x01] = 0x38200007;
@@ -342,7 +349,7 @@ int main(int argc, char *argv[])
 	((uint32_t*)guest_mem)[0x04] = 0x7c800a14;
 	((uint32_t*)guest_mem)[0x05] = debug_inst_opcode;
 
-	if(0 != kvm_vm_set_user_memory_region(vmfd, 0x0, guest_mem, 0x8000000)) {
+	if(0 != kvm_vm_set_user_memory_region(vmfd, 0x0, guest_mem, GUEST_MEM_SIZE)) {
 		fprintf(stderr, "could not set user memory region: %s\n", strerror(errno));
 		goto set_user_mem_region_failed;
 	}
@@ -351,7 +358,7 @@ int main(int argc, char *argv[])
 	if (mpicfd < 0) {
 		fprintf(stderr, "could not create MPIC\n");
 	}
-	fprintf(stderr, "MPIC Device fd: %d\n", mpicfd);
+	fprintf(stdout, "MPIC Device fd: %d\n", mpicfd);
 
 	if (kvm_vm_set_irq_routing(vmfd) < 0) {
 		fprintf(stderr, "could not set irq routing\n");
@@ -374,9 +381,10 @@ int main(int argc, char *argv[])
 	}
 
 	// populate single tlb entry for initial CPU run
-	tlb[512].mas1 = MAS1_VALID | 0x800;
+	// qemu also chose 512
+	tlb[512].mas1 = MAS1_VALID | (0 << MAS1_TSIZE_SHIFT);
 	tlb[512].mas2 = 0;
-	tlb[512].mas7_3 = 0x3f;
+	tlb[512].mas7_3 = MAS3_UR | MAS3_UW | MAS3_UX | MAS3_SR | MAS3_SW | MAS3_SX;
 
 	if (kvm_vcpu_invalidate_tlb_cache(vcpufd) < 0) {
 		fprintf(stderr, "could not invalidate TLB cache\n");
@@ -390,6 +398,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "could not clear TSR\n");
 	}
 
+	// qemu was injecting this interrupt for serial
 	//if (kvm_vm_irq_line(vmfd, 42, 0) < 0) {
 	//	fprintf(stderr, "could not irq line!\n");
 	//}
@@ -401,10 +410,10 @@ int main(int argc, char *argv[])
 	int done = 0;
 	while (!done) {
 		ioctl(vcpufd, KVM_RUN, 0);
-		fprintf(stderr, "kvm_run exit!\n");
+		fprintf(stdout, "kvm_run exit!\n");
 		switch(vcpu_kvm_run->exit_reason) {
 			case KVM_EXIT_HLT:
-				printf("vcpu halted\n");
+				fprintf(stdout, "vcpu halted\n");
 				break;
 			case KVM_EXIT_FAIL_ENTRY:
 				fprintf(stderr, "KVM_EXIT_FAIL_ENTRY: hardware entry failure reason = 0x%llx\n", (unsigned long long)vcpu_kvm_run->fail_entry.hardware_entry_failure_reason);
@@ -422,7 +431,7 @@ int main(int argc, char *argv[])
 	}
 
 set_user_mem_region_failed:
-	munmap(guest_mem, 0x8000000);
+	munmap(guest_mem, GUEST_MEM_SIZE);
 	guest_mem = NULL;
 guest_mem_map_failed:
 	free(tlb);
