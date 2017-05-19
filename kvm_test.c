@@ -342,11 +342,11 @@ int main(int argc, char *argv[])
 
 	memset(guest_mem, 0, GUEST_MEM_SIZE);
 
-	((uint32_t*)guest_mem)[0x00] = 0x38000008;
-	((uint32_t*)guest_mem)[0x01] = 0x38200007;
-	((uint32_t*)guest_mem)[0x02] = 0x38400006;
-	((uint32_t*)guest_mem)[0x03] = 0x38600005;
-	((uint32_t*)guest_mem)[0x04] = 0x7c800a14;
+	((uint32_t*)guest_mem)[0x00] = 0x38000008; // li r0, 8
+	((uint32_t*)guest_mem)[0x01] = 0x38200007; // li r1, 7
+	((uint32_t*)guest_mem)[0x02] = 0x38400006; // li r2, 6
+	((uint32_t*)guest_mem)[0x03] = 0x38600005; // li r3, 5
+	((uint32_t*)guest_mem)[0x04] = 0x7c800a14; // add r4, r0, r1
 	((uint32_t*)guest_mem)[0x05] = debug_inst_opcode;
 
 	if(0 != kvm_vm_set_user_memory_region(vmfd, 0x0, guest_mem, GUEST_MEM_SIZE)) {
