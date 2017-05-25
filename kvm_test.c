@@ -45,7 +45,7 @@ struct ppcmas_tlb_t *kvm_vcpu_initialize_tlb(int vcpufd) {
 	struct ppcmas_tlb_t *tlbm;
 	tlbm = malloc(total_tlb_size * sizeof(ppcmas_tlb_t));
 
-        for(i = 0; i < total_tlb_size; i++) {
+	for (i = 0; i < total_tlb_size; i++) {
 		tlbm[i].mas1 &= ~MAS1_VALID;
 	}
 
@@ -112,7 +112,7 @@ int kvm_vm_create_mpic(int vmfd) {
 
 	struct kvm_create_device cd = {0};
 	cd.type = KVM_DEV_TYPE_FSL_MPIC_42;
-       	ret = ioctl(vmfd, KVM_CREATE_DEVICE, &cd);
+	ret = ioctl(vmfd, KVM_CREATE_DEVICE, &cd);
 	if (ret < 0) return ret;
 
 	return cd.fd;
@@ -123,7 +123,7 @@ int kvm_vm_set_irq_routing(int vmfd) {
 
 	struct kvm_irq_routing *irq_routes = malloc(sizeof(struct kvm_irq_routing) + 256*sizeof(struct kvm_irq_routing_entry));
 
-        memset(irq_routes, 0, sizeof(struct kvm_irq_routing) + 256*sizeof(struct kvm_irq_routing_entry));
+	memset(irq_routes, 0, sizeof(struct kvm_irq_routing) + 256*sizeof(struct kvm_irq_routing_entry));
 
 	irq_routes->flags = 0;
 	irq_routes->nr = 256;
@@ -251,7 +251,7 @@ int kvm_vcpu_invalidate_tlb_cache(int vcpufd)
 
 int kvm_vm_irq_line(int vmfd, int irq, int level)
 {
-        struct kvm_irq_level irq_event = {0};
+	struct kvm_irq_level irq_event = {0};
 	irq_event.irq = irq;
 	irq_event.level = level;
 
@@ -287,14 +287,14 @@ int main(int argc, char *argv[])
 	}
 
 	int vmfd = ioctl(kvmfd, KVM_CREATE_VM, (unsigned long)0);
-	if(vmfd < 0) {
+	if (vmfd < 0) {
 		fprintf(stderr, "could not create VM: %s\n", strerror(errno));
 		ret = errno;
 		goto kvm_vm_create_failed;
 	}
 
 	int vcpufd = ioctl(vmfd, KVM_CREATE_VCPU, (unsigned long)0);
-	if(vcpufd < 0) {
+	if (vcpufd < 0) {
 		fprintf(stderr, "could not create vcpu: %s\n", strerror(errno));
 		ret = errno;
 		goto create_vcpu_failed;
@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "kvm_run mmap size: %d\n", kvm_run_mmap_size);
 
 	struct kvm_run *vcpu_kvm_run = mmap(NULL, kvm_run_mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED, vcpufd, 0);
-	if(0 == vcpu_kvm_run) {
+	if (0 == vcpu_kvm_run) {
 		fprintf(stderr, "could not map vcpu kvm_run structure: %s\n", strerror(errno));
 		ret = errno;
 		goto kvm_run_mmap_failed;
@@ -316,23 +316,23 @@ int main(int argc, char *argv[])
 	}
 
 	uint32_t debug_inst_opcode;
-	if(kvm_vcpu_get_debug_opcode(vcpufd, &debug_inst_opcode) < 0) {
+	if (kvm_vcpu_get_debug_opcode(vcpufd, &debug_inst_opcode) < 0) {
 		fprintf(stderr, "coult not get debug opcode!\n");
 	}
 	fprintf(stdout, "debug_inst_opcode = %X\n", debug_inst_opcode);
 
 	sigset_t sigset;
 	sigemptyset(&sigset);
-	if(kvm_vcpu_set_sigmask(vcpufd, &sigset) < 0) {
+	if (kvm_vcpu_set_sigmask(vcpufd, &sigset) < 0) {
 		fprintf(stderr, "could not set sigmask!\n");
 	}
 
-	if(kvm_vcpu_enable_watchdog(vcpufd) < 0) {
+	if (kvm_vcpu_enable_watchdog(vcpufd) < 0) {
 		fprintf(stderr, "could not enable watchdog!\n");
 	}
 
 	void *guest_mem = mmap(NULL, GUEST_MEM_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if(0 == guest_mem) {
+	if (0 == guest_mem) {
 		fprintf(stderr, "could not map guest memory: %s\n", strerror(errno));
 		ret = errno;
 		goto guest_mem_map_failed;
@@ -349,7 +349,7 @@ int main(int argc, char *argv[])
 	((uint32_t*)guest_mem)[0x04] = 0x7c800a14; // add r4, r0, r1
 	((uint32_t*)guest_mem)[0x05] = debug_inst_opcode;
 
-	if(0 != kvm_vm_set_user_memory_region(vmfd, 0x0, guest_mem, GUEST_MEM_SIZE)) {
+	if (0 != kvm_vm_set_user_memory_region(vmfd, 0x0, guest_mem, GUEST_MEM_SIZE)) {
 		fprintf(stderr, "could not set user memory region: %s\n", strerror(errno));
 		goto set_user_mem_region_failed;
 	}
@@ -368,11 +368,11 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "could not connect MPIC\n");
 	}
 
-	if(kvm_vcpu_reset_regs(vcpufd) < 0) {
+	if (kvm_vcpu_reset_regs(vcpufd) < 0) {
 		fprintf(stderr, "could not reset regs!\n");
 	}
 
-	if(kvm_vcpu_print_regs(vcpufd) < 0) {
+	if (kvm_vcpu_print_regs(vcpufd) < 0) {
 		fprintf(stderr, "could not print regs!\n");
 	}
 
@@ -411,7 +411,7 @@ int main(int argc, char *argv[])
 	while (!done) {
 		ioctl(vcpufd, KVM_RUN, 0);
 		fprintf(stdout, "kvm_run exit!\n");
-		switch(vcpu_kvm_run->exit_reason) {
+		switch (vcpu_kvm_run->exit_reason) {
 			case KVM_EXIT_HLT:
 				fprintf(stdout, "vcpu halted\n");
 				break;
