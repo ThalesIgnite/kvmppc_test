@@ -71,8 +71,14 @@ The code is good enough to run basic programs and can execute the initial stages
 
 ## Suggestions
 
-- Use a Python GDB script to print the regs out in the same format to help compare traces between GDB debugging a QEMU running kernel and kvmtool running kernel
-- Make use of Early debugging console (PPC_EARLY_DEBUG) which is an in-memory console
+- Attach GDB to qemu, see https://wiki.osdev.org/Kernel_Debugging#Use_GDB_with_QEMU
+- Use a Python GDB script to print the regs out in the same format to help compare traces between GDB debugging a QEMU running kernel and kvmtool running kernel. A primitive one I was using for tracing is provided here: [ThalesIgnite/kvmtool/ppce/tracexec.py](https://github.com/ThalesIgnite/kvmtool/blob/powerpc_book3e/ppce/tracexec.py), when running GDB it can be used as such:
+  ```
+  source tracexec.py
+  tracexec
+  ```
+  Traces of 1000 running instructions will then be placed in /tmp/trace-qemu.txt
+- Make use of Early debugging console (PPC_EARLY_DEBUG) which is an in-memory console.
 
 ## References
 
