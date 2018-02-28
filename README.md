@@ -79,6 +79,7 @@ The code is good enough to run basic programs and can execute the initial stages
   ```
   Traces of 1000 running instructions will then be placed in /tmp/trace-qemu.txt
 - Make use of Early debugging console (PPC_EARLY_DEBUG) which is an in-memory console.
+- Make use of this repo for short PoC tests and experimentation (e.g. MMIO from within the guest).
 
 ## References
 
