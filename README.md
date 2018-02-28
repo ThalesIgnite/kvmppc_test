@@ -1,6 +1,6 @@
 # KVM PPC minimal VM example
 
-This example demonstrates using the KVM API directly to launch a VM on PowerPC Book3E processor, specifically the e5500 running a 32-bit Linux host. The inspiration came from [Using the KVM API](https://lwn.net/Articles/658511/), an article published on https://lwn.net. The article covered creating a VM on the x86, and the PowerPC Book3E differed slightly so I used QEMU as my source of information along with reference manuals. The repository is staging ground for eventually adding support to our fork of [kvmtool](https://github.com/ThalesIgnite/kvmtool) so both repostiories are covered here, highlighting when something only applies to one.
+This example demonstrates using the KVM API directly to launch a VM on PowerPC Book3E processor, specifically the e5500 running a 32-bit Linux host. The inspiration came from [Using the KVM API](https://lwn.net/Articles/658511/), an article published on https://lwn.net. The article covered creating a VM on the x86, and the PowerPC Book3E differed slightly so I used QEMU as my source of information along with reference manuals. The repository is staging ground for eventually adding support to our fork of [kvmtool](https://github.com/ThalesIgnite/kvmtool), branch powerpc_book3e, so both repostiories are covered here, highlighting when something only applies to one.
 
 ## e5500
 
